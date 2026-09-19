@@ -9,7 +9,7 @@ chosen number of days.
 import io
 import json
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import Integer, cast, func
@@ -22,7 +22,9 @@ from app.models.learning_path import LearningPath
 from app.models.step import Step
 from app.models.task import Task
 from app.models.user import User
-from app.schemas.prep import PrepReply, PrepRequest
+from app.schemas.prep import (PrepReply, PrepRequest, ResumeApplyRequest,
+                              ResumeApplyReply, ResumeMatch, ResumeMatchReply,
+                              ResumeStatus)
 from app.services import groq_client
 
 router = APIRouter(prefix="/prep", tags=["Job prep"])
@@ -97,10 +99,8 @@ def _image_text(data: bytes, fmt: str) -> str:
     return resp["output"]["message"]["content"][0]["text"]
 
 
-@router.post("/extract")
-async def extract_jd(file: UploadFile = File(...),
-                     current_user: User = Depends(get_current_user)):
-    """Pull the text out of an uploaded JD file (PDF, image, or plain text)."""
+async def _extract_text(file: UploadFile) -> str:
+    """Pull text out of an uploaded PDF, image, or plain-text file."""
     name = (file.filename or "").lower()
     ext = "." + name.rsplit(".", 1)[-1] if "." in name else ""
     data = await file.read()
@@ -137,7 +137,169 @@ async def extract_jd(file: UploadFile = File(...),
     if len(text) < 40:
         raise HTTPException(status_code=422,
                             detail="Couldn't find enough text in that file. Try pasting it.")
-    return {"text": text[:15000]}
+    return text[:15000]
+
+
+@router.post("/extract")
+async def extract_jd(file: UploadFile = File(...),
+                     current_user: User = Depends(get_current_user)):
+    """Pull the text out of an uploaded JD file (PDF, image, or plain text)."""
+    return {"text": await _extract_text(file)}
+
+
+# ---------------------------------------------------------------------------
+# Resume: upload once, reuse everywhere.
+#
+# Two jobs. (1) Evidence for job prep: the JD analysis sees the resume as
+# proof of real experience, so readiness reflects what the user has actually
+# done, not just what they ticked in Ascend. (2) Catch-up: match the resume
+# against the user's OPEN steps and propose the ones the resume already
+# covers. The user confirms; nothing is marked done silently, so the
+# "only completed work counts" rule from _skill_inventory still holds.
+# ---------------------------------------------------------------------------
+RESUME_CHARS = 6000
+MATCH_SYSTEM = (
+    "You audit a learner's resume against their learning plan. You are "
+    "conservative: a step matches only when the resume shows hands-on, "
+    "professional or project experience with that specific topic. Familiar "
+    "sounding words are not enough. Output JSON only."
+)
+
+
+def _resume_status(user: User) -> ResumeStatus:
+    text = user.resume_text or ""
+    return ResumeStatus(
+        has_resume=bool(text),
+        filename=user.resume_filename,
+        updated_at=user.resume_updated_at,
+        excerpt=(text[:220] + ("..." if len(text) > 220 else "")) if text else None,
+        chars=len(text),
+    )
+
+
+def _open_steps(db: Session, uid: int) -> list:
+    """(step, path_title, goal_role) for every unfinished step the user owns."""
+    rows = (db.query(Step, LearningPath.title, Goal.role)
+            .join(LearningPath, Step.path_id == LearningPath.id)
+            .join(Goal, LearningPath.goal_id == Goal.id)
+            .filter(Goal.owner_id == uid, Goal.is_deleted.is_(False),
+                    Goal.is_archived.is_(False),
+                    LearningPath.is_deleted.is_(False),
+                    LearningPath.title != COVERED_PATH_TITLE,
+                    Step.is_done.is_(False))
+            .order_by(Goal.created_at.desc(), Step.step_order.asc())
+            .limit(150).all())
+    return rows
+
+
+def _match_resume(db: Session, user: User) -> list:
+    """Ask the LLM which open steps the resume already proves. Returns
+    validated ResumeMatch rows (only ids that really are the user's open steps)."""
+    rows = _open_steps(db, user.id)
+    if not rows or not user.resume_text:
+        return []
+    by_id = {step.id: (step, path_title, role) for step, path_title, role in rows}
+    listing = [{"id": step.id, "title": step.title, "for_role": role}
+               for step, _pt, role in rows]
+    prompt = (
+        f"RESUME:\n{user.resume_text[:RESUME_CHARS]}\n\n"
+        f"OPEN LEARNING STEPS (not yet completed):\n{json.dumps(listing)}\n\n"
+        "Which steps does this resume already demonstrate? Respond as JSON:\n"
+        '{"matches": [{"step_id": <id>, "evidence": "<under 15 words, cite the '
+        'resume line or project that proves it>"}]}\n'
+        "Rules: include a step ONLY if the resume shows the person has done it "
+        "for real. Skip anything uncertain. Return an empty list if nothing "
+        "matches. No em dashes."
+    )
+    try:
+        raw = groq_client.complete(
+            [{"role": "system", "content": MATCH_SYSTEM},
+             {"role": "user", "content": prompt}],
+            temperature=0.2, max_tokens=1200,
+            response_format={"type": "json_object"},
+        )
+        data = json.loads(raw)
+    except Exception:
+        logger.exception("resume match failed")
+        raise HTTPException(status_code=503,
+                            detail="Couldn't match your resume just now. Please try again.")
+
+    out, seen = [], set()
+    for m in (data.get("matches") or [])[:40]:
+        try:
+            sid = int(m.get("step_id"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if sid in seen or sid not in by_id:
+            continue
+        seen.add(sid)
+        step, path_title, role = by_id[sid]
+        out.append(ResumeMatch(step_id=sid, title=step.title, path_title=path_title,
+                               goal_role=role,
+                               evidence=str(m.get("evidence") or "").strip()[:160]))
+    return out
+
+
+@router.get("/resume", response_model=ResumeStatus)
+def get_resume(current_user: User = Depends(get_current_user)):
+    return _resume_status(current_user)
+
+
+@router.post("/resume", response_model=ResumeMatchReply)
+async def upload_resume(file: UploadFile = File(...), db: Session = Depends(get_db),
+                        current_user: User = Depends(get_current_user)):
+    """Store the resume on the account, then propose open steps it already covers."""
+    text = await _extract_text(file)
+    current_user.resume_text = text
+    current_user.resume_filename = (file.filename or "resume")[:255]
+    current_user.resume_updated_at = datetime.utcnow()
+    current_user.mark_feature_seen("resume_upload")
+    db.commit()
+    db.refresh(current_user)
+    matches = _match_resume(db, current_user)
+    return ResumeMatchReply(resume=_resume_status(current_user), matches=matches)
+
+
+@router.post("/resume/match", response_model=ResumeMatchReply)
+def rematch_resume(db: Session = Depends(get_db),
+                   current_user: User = Depends(get_current_user)):
+    """Re-run the matcher (e.g. after new goals were added)."""
+    if not current_user.resume_text:
+        raise HTTPException(status_code=404, detail="No resume on file yet.")
+    return ResumeMatchReply(resume=_resume_status(current_user),
+                            matches=_match_resume(db, current_user))
+
+
+@router.post("/resume/apply", response_model=ResumeApplyReply)
+def apply_resume_matches(req: ResumeApplyRequest, db: Session = Depends(get_db),
+                         current_user: User = Depends(get_current_user)):
+    """Mark the confirmed steps (and their tasks) done. Ownership is enforced:
+    ids that are not the caller's open steps are ignored."""
+    wanted = set(req.step_ids[:100])
+    if not wanted:
+        return ResumeApplyReply(marked_done=0)
+    rows = _open_steps(db, current_user.id)
+    marked = 0
+    for step, _pt, _role in rows:
+        if step.id not in wanted:
+            continue
+        step.is_done = True
+        for t in step.tasks:
+            t.is_done = True
+        marked += 1
+    db.commit()
+    return ResumeApplyReply(marked_done=marked)
+
+
+@router.delete("/resume", response_model=ResumeStatus)
+def delete_resume(db: Session = Depends(get_db),
+                  current_user: User = Depends(get_current_user)):
+    current_user.resume_text = None
+    current_user.resume_filename = None
+    current_user.resume_updated_at = None
+    db.commit()
+    db.refresh(current_user)
+    return _resume_status(current_user)
 
 
 ANALYZE_SYSTEM = (
@@ -152,15 +314,23 @@ def analyze(req: PrepRequest, db: Session = Depends(get_db),
             current_user: User = Depends(get_current_user)):
     inventory = _skill_inventory(db, current_user.id)
     jd = req.jd_text.strip()[:8000]
+    resume = (current_user.resume_text or "").strip()[:RESUME_CHARS]
+    resume_block = (
+        f"CANDIDATE'S RESUME (verified experience, treat as evidence of skills "
+        f"they already have):\n{resume}\n\n"
+        if resume else
+        "CANDIDATE'S RESUME: not provided.\n\n"
+    )
 
     prompt = (
         f"JOB DESCRIPTION:\n{jd}\n\n"
         f"CANDIDATE'S COMPLETED SKILLS (only topics they have fully finished "
         f"in their learning tracker): "
         f"{inventory if inventory else '(none completed yet)'}\n\n"
-        "This list is exhaustive. Anything the job needs that is NOT on this "
-        "list is a gap, even if it sounds basic. Do not assume prior "
-        "knowledge. Readiness must reflect only the completed skills above.\n\n"
+        f"{resume_block}"
+        "Strengths and readiness must come ONLY from the completed skills list "
+        "and the resume. Anything the job needs that is in neither is a gap, "
+        "even if it sounds basic. Do not assume prior knowledge.\n\n"
         f"The candidate has {req.days} days to prepare. Analyze and respond as JSON:\n"
         "{\n"
         '  "role": "<the job title, short>",\n'

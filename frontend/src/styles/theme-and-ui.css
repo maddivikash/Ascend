@@ -2235,3 +2235,67 @@ body.coach-open .app-shell { padding-right: min(var(--coach-w), 100vw); }
 .auth-blog-link a { color: var(--brand); font-weight: 600; text-decoration: none; }
 .blog__weekly { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border); }
 .blog__weekly-title { font-size: clamp(26px, 4vw, 36px); margin: 6px 0 16px; }
+
+
+/* ============================================================
+   Resume panel (profile + job-prep modal) and "new feature" popover
+   ============================================================ */
+.resume-panel { display: flex; flex-direction: column; gap: 12px; }
+.resume-panel--compact {
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.resume-panel__row {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+}
+.resume-panel__info { flex: 1 1 260px; min-width: 0; }
+.resume-panel__label { font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.resume-panel__ok { color: var(--brand); font-weight: 700; }
+.resume-panel__tag {
+  font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 999px; color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+}
+.resume-panel__actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.resume-panel__remove { color: var(--danger, #d64545); }
+
+.resume-matches {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.resume-matches__head { font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; }
+.resume-matches__head strong { color: var(--text); }
+.resume-matches ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.resume-match { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.resume-match input { margin-top: 3px; accent-color: var(--brand); }
+.resume-match__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.resume-match__title { font-weight: 600; font-size: 0.92rem; }
+.resume-match__meta { font-size: 0.8rem; color: var(--text-soft); line-height: 1.4; }
+.resume-matches__actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.feature-anchor { position: relative; display: inline-flex; }
+.feature-pop {
+  position: absolute; top: calc(100% + 12px); right: 0; z-index: 40; width: 300px; max-width: calc(100vw - 32px);
+  padding: 14px 16px 12px; border-radius: var(--radius-lg); background: var(--surface);
+  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column; gap: 6px; animation: featurePopIn 0.25s ease-out;
+}
+.feature-pop::before {
+  content: ""; position: absolute; top: -7px; right: 28px; width: 12px; height: 12px;
+  background: var(--surface); border-left: 1px solid var(--border); border-top: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+.feature-pop__badge {
+  align-self: flex-start; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #fff; background: var(--brand); padding: 2px 8px; border-radius: 999px;
+}
+.feature-pop__title { font-size: 1rem; }
+.feature-pop p { margin: 0; font-size: 0.86rem; color: var(--text-muted); line-height: 1.5; }
+.feature-pop__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+@keyframes featurePopIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) {
+  .feature-pop { right: auto; left: 0; }
+  .feature-pop::before { right: auto; left: 28px; }
+}

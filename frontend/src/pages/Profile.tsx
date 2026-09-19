@@ -14,6 +14,7 @@ import { useTheme } from "../context/theme";
 import { useConfirm, useToast } from "../context/ui";
 import { resetActivity } from "../lib/activity";
 import Modal from "../components/Modal";
+import ResumePanel from "../components/ResumePanel";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -185,6 +186,12 @@ export default function Profile() {
             </button>
           </div>
         </div>
+      </section>
+
+      {/* Resume */}
+      <section className="settings-card">
+        <h2 className="settings-card__title">Resume</h2>
+        <ResumePanel variant="full" />
       </section>
 
       {/* Security */}

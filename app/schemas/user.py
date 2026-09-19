@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import List, Optional
+
 from pydantic import BaseModel, EmailStr, constr
 
 class UserBase(BaseModel):
@@ -10,6 +13,10 @@ class UserCreate(UserBase):
 class UserOut(UserBase):
     id: int
     email_reminders: bool = True
+    has_resume: bool = False
+    resume_filename: Optional[str] = None
+    resume_updated_at: Optional[datetime] = None
+    seen_features: List[str] = []
 
     class Config:
         from_attributes = True

@@ -5,6 +5,7 @@ import {
   deleteGoal,
   getDashboard,
   listRoles,
+  markFeatureSeen,
   resetGoal,
   setGoalArchived,
 } from "../api/endpoints";
@@ -17,12 +18,36 @@ import JobPrepModal from "../components/JobPrepModal";
 import RoleCombobox from "../components/RoleCombobox";
 import { logActivity } from "../lib/activity";
 import { useConfirm, useToast } from "../context/ui";
+import { useAuth } from "../context/AuthContext";
+
+const RESUME_FEATURE = "resume_upload";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const confirm = useConfirm();
   const { success, error: toastError } = useToast();
+  const { user, refreshUser } = useAuth();
+
+  // "New feature" popover: shown once per account (server-side flag), to
+  // everyone who has neither dismissed it nor already uploaded a resume.
+  const [popDismissed, setPopDismissed] = useState(false);
+  const showResumePop =
+    !!user &&
+    !popDismissed &&
+    !user.has_resume &&
+    !(user.seen_features ?? []).includes(RESUME_FEATURE);
+
+  async function dismissResumePop(openPrep: boolean) {
+    setPopDismissed(true);
+    if (openPrep) setPrepOpen(true);
+    try {
+      await markFeatureSeen(RESUME_FEATURE);
+      await refreshUser();
+    } catch {
+      /* best effort: it will show again next visit */
+    }
+  }
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -194,12 +219,33 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="page__head-actions">
-          <button
-            className="btn btn--soft"
-            onClick={() => setPrepOpen(true)}
-          >
-            🎯 Prep for a job
-          </button>
+          <div className="feature-anchor">
+            <button
+              className="btn btn--soft"
+              onClick={() => setPrepOpen(true)}
+            >
+              🎯 Prep for a job
+            </button>
+            {showResumePop && (
+              <div className="feature-pop" role="dialog" aria-label="New: resume upload">
+                <span className="feature-pop__badge">New</span>
+                <strong className="feature-pop__title">Upload your resume</strong>
+                <p>
+                  Ascend matches it against your steps so you can mark what you
+                  have already done, and job prep scores your readiness from real
+                  experience instead of guessing.
+                </p>
+                <div className="feature-pop__actions">
+                  <button className="btn btn--ghost btn--sm" onClick={() => dismissResumePop(false)}>
+                    Got it
+                  </button>
+                  <button className="btn btn--primary btn--sm" onClick={() => dismissResumePop(true)}>
+                    Add my resume
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <button
             className="btn btn--primary"
             onClick={() => {

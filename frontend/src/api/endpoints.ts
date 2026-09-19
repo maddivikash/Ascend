@@ -109,11 +109,11 @@ export function prepAnalyze(
 }
 
 // Multipart upload (apiFetch is JSON-only, so this uses fetch directly).
-export async function prepExtract(file: File): Promise<{ text: string }> {
+async function uploadFile<T>(path: string, file: File): Promise<T> {
   const form = new FormData();
   form.append("file", file);
   const token = getAccessToken();
-  const res = await fetch(`${API_URL}/prep/extract`, {
+  const res = await fetch(`${API_URL}${path}`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: form,
@@ -129,6 +129,55 @@ export async function prepExtract(file: File): Promise<{ text: string }> {
     throw new Error(detail);
   }
   return res.json();
+}
+
+export function prepExtract(file: File): Promise<{ text: string }> {
+  return uploadFile("/prep/extract", file);
+}
+
+// ---- Resume (stored once on the account) ----
+export interface ResumeStatus {
+  has_resume: boolean;
+  filename: string | null;
+  updated_at: string | null;
+  excerpt: string | null;
+  chars: number;
+}
+export interface ResumeMatch {
+  step_id: number;
+  title: string;
+  path_title: string;
+  goal_role: string;
+  evidence: string;
+}
+export interface ResumeMatchReply {
+  resume: ResumeStatus;
+  matches: ResumeMatch[];
+}
+export function getResume(): Promise<ResumeStatus> {
+  return apiFetch<ResumeStatus>("/prep/resume");
+}
+export function uploadResume(file: File): Promise<ResumeMatchReply> {
+  return uploadFile("/prep/resume", file);
+}
+export function rematchResume(): Promise<ResumeMatchReply> {
+  return apiFetch<ResumeMatchReply>("/prep/resume/match", { method: "POST" });
+}
+export function applyResumeMatches(
+  stepIds: number[]
+): Promise<{ marked_done: number }> {
+  return apiFetch("/prep/resume/apply", {
+    method: "POST",
+    body: { step_ids: stepIds },
+  });
+}
+export function deleteResume(): Promise<ResumeStatus> {
+  return apiFetch<ResumeStatus>("/prep/resume", { method: "DELETE" });
+}
+export function markFeatureSeen(key: string): Promise<User> {
+  return apiFetch<User>(`/api/users/me/seen/${encodeURIComponent(key)}`, {
+    method: "POST",
+  });
 }
 
 // ---- Learn Studio (guided/interactive tutoring) ----

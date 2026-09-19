@@ -104,6 +104,22 @@ def update_preferences(
     return current_user
 
 
+@router.post("/users/me/seen/{feature}", response_model=UserOut)
+def mark_feature_seen(
+    feature: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Dismiss an in-app feature announcement for this account."""
+    key = "".join(c for c in feature.lower() if c.isalnum() or c == "_")[:40]
+    if not key:
+        raise HTTPException(status_code=400, detail="Unknown feature")
+    current_user.mark_feature_seen(key)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
 @router.put("/users/me/password", response_model=dict)
 def change_password(
     payload: PasswordChange,

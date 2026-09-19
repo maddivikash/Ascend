@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { prepAnalyze, prepExtract, type PrepReport } from "../api/endpoints";
 import Modal from "./Modal";
+import ResumePanel from "./ResumePanel";
 import { logActivity } from "../lib/activity";
 
 interface Props {
@@ -82,7 +83,9 @@ export default function JobPrepModal({ open, onClose, onCreated }: Props) {
           <p className="prep-form__lead">
             Paste the job description. You'll get an honest readiness score,
             what you're missing, and a day-by-day prep plan built from it.
+            Your resume and the steps you have finished count as what you know.
           </p>
+          <ResumePanel variant="compact" onApplied={onCreated} />
           <textarea
             value={jd}
             onChange={(e) => setJd(e.target.value)}

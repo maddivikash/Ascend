@@ -1,4 +1,5 @@
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, constr
 
@@ -16,3 +17,32 @@ class PrepReply(BaseModel):
     strengths: List[str]    # what the user already has
     gaps: List[str]         # what's missing (the plan targets these)
     total_tasks: int
+
+
+class ResumeStatus(BaseModel):
+    has_resume: bool
+    filename: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    excerpt: Optional[str] = None   # first lines, so the user can recognise it
+    chars: int = 0
+
+
+class ResumeMatch(BaseModel):
+    step_id: int
+    title: str
+    path_title: str
+    goal_role: str
+    evidence: str           # why the resume proves this step, short
+
+
+class ResumeMatchReply(BaseModel):
+    resume: ResumeStatus
+    matches: List[ResumeMatch]
+
+
+class ResumeApplyRequest(BaseModel):
+    step_ids: List[int] = Field(default_factory=list)
+
+
+class ResumeApplyReply(BaseModel):
+    marked_done: int

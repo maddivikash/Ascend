@@ -3,6 +3,10 @@ export interface User {
   email: string;
   full_name: string;
   email_reminders?: boolean;
+  has_resume?: boolean;
+  resume_filename?: string | null;
+  resume_updated_at?: string | null;
+  seen_features?: string[];
 }
 
 export interface AppNotification {
