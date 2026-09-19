@@ -12,6 +12,7 @@ import logging
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy import Integer, cast, func
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -28,14 +29,47 @@ router = APIRouter(prefix="/prep", tags=["Job prep"])
 logger = logging.getLogger("skillsync.prep")
 
 
+COVERED_PATH_TITLE = "Already covered"
+
+
 def _skill_inventory(db: Session, uid: int) -> list:
-    """Titles of everything the user has in their goals (their current skills)."""
-    rows = (db.query(Step.title)
-            .join(LearningPath, Step.path_id == LearningPath.id)
-            .join(Goal, LearningPath.goal_id == Goal.id)
-            .filter(Goal.owner_id == uid, Goal.is_deleted.is_(False))
-            .limit(120).all())
-    return sorted({r[0] for r in rows})
+    """Titles of the steps the user has actually COMPLETED across their goals.
+
+    Only finished work counts as a current skill: a step is complete when the
+    user ticked it done, or when every one of its tasks is done. Steps that
+    were merely suggested by an earlier plan (and never finished) must not be
+    fed back as strengths, otherwise a second JD that overlaps the first one
+    starts at an inflated readiness for skills the user never learned.
+
+    The auto-generated "Already covered" strengths path is skipped too: those
+    rows are LLM paraphrases of real completed steps, and re-feeding them
+    would let one plan's strengths cascade into the next.
+    """
+    task_totals = (
+        db.query(
+            Task.step_id.label("step_id"),
+            func.count(Task.id).label("total"),
+            func.coalesce(func.sum(cast(Task.is_done, Integer)), 0).label("done"),
+        )
+        .group_by(Task.step_id)
+        .subquery()
+    )
+    rows = (
+        db.query(Step.title, Step.is_done, task_totals.c.total, task_totals.c.done)
+        .join(LearningPath, Step.path_id == LearningPath.id)
+        .join(Goal, LearningPath.goal_id == Goal.id)
+        .outerjoin(task_totals, task_totals.c.step_id == Step.id)
+        .filter(Goal.owner_id == uid, Goal.is_deleted.is_(False),
+                LearningPath.is_deleted.is_(False),
+                LearningPath.title != COVERED_PATH_TITLE)
+        .all()
+    )
+    done_titles = set()
+    for title, is_done, total, done in rows:
+        all_tasks_done = bool(total) and int(done or 0) >= int(total)
+        if is_done or all_tasks_done:
+            done_titles.add(title)
+    return sorted(done_titles)[:120]
 
 
 MAX_UPLOAD = 5 * 1024 * 1024   # 5 MB (pdf/text)
@@ -121,8 +155,12 @@ def analyze(req: PrepRequest, db: Session = Depends(get_db),
 
     prompt = (
         f"JOB DESCRIPTION:\n{jd}\n\n"
-        f"CANDIDATE'S CURRENT SKILLS (from their learning tracker): "
-        f"{inventory if inventory else '(none listed)'}\n\n"
+        f"CANDIDATE'S COMPLETED SKILLS (only topics they have fully finished "
+        f"in their learning tracker): "
+        f"{inventory if inventory else '(none completed yet)'}\n\n"
+        "This list is exhaustive. Anything the job needs that is NOT on this "
+        "list is a gap, even if it sounds basic. Do not assume prior "
+        "knowledge. Readiness must reflect only the completed skills above.\n\n"
         f"The candidate has {req.days} days to prepare. Analyze and respond as JSON:\n"
         "{\n"
         '  "role": "<the job title, short>",\n'
@@ -178,7 +216,7 @@ def analyze(req: PrepRequest, db: Session = Depends(get_db),
     # tasks, so they don't inflate the readiness/progress math.
     strengths = [str(x).strip()[:120] for x in (data.get("strengths") or [])[:6]]
     if strengths:
-        covered = LearningPath(goal_id=goal.id, title="Already covered",
+        covered = LearningPath(goal_id=goal.id, title=COVERED_PATH_TITLE,
                                description="Requirements you already meet")
         db.add(covered)
         db.flush()
