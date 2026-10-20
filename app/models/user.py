@@ -27,6 +27,8 @@ class User(Base):
     # For the admin dashboard: when the account was made and when it last signed in.
     created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
     last_login_at = Column(DateTime, nullable=True)
+    # Granted directly in the database (see migration h8usertime01); the app never sets it.
+    is_admin = Column(Boolean, nullable=False, default=False, server_default="false")
 
     @property
     def has_resume(self) -> bool:

@@ -26,7 +26,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 def require_admin(current_user=Depends(get_current_user)):
-    """Logged-in user whose email is in ADMIN_EMAILS (blog admin and the admin dashboard)."""
-    if (current_user.email or "").lower() not in settings.ADMIN_EMAILS:
+    """Admin = users.is_admin set directly in the database. ADMIN_EMAILS is no longer consulted."""
+    if not getattr(current_user, "is_admin", False):
         raise HTTPException(status_code=403, detail="Admin only")
     return current_user

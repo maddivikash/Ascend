@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { getAdminOverview } from "../api/endpoints";
 import type { AdminOverview, AdminUserRow, DayCount } from "../types";
 
@@ -65,6 +66,7 @@ function stageOf(u: AdminUserRow): { label: string; cls: string } {
 }
 
 export default function Admin() {
+  const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const days = RANGES.includes(Number(params.get("days"))) ? Number(params.get("days")) : 30;
   const [data, setData] = useState<AdminOverview | null>(null);
@@ -82,6 +84,9 @@ export default function Admin() {
       alive = false;
     };
   }, [days]);
+
+  // Not an admin: behave like the page does not exist.
+  if (user && !user.is_admin) return <Navigate to="/" replace />;
 
   if (error) {
     return (

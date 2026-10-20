@@ -94,7 +94,7 @@ def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(
 @router.get("/users/me", response_model=UserOut)
 def get_current_logged_in_user(current_user=Depends(get_current_user)):
     out = UserOut.model_validate(current_user)
-    out.is_admin = (current_user.email or "").lower() in settings.ADMIN_EMAILS
+    out.is_admin = bool(current_user.is_admin)
     return out
 
 

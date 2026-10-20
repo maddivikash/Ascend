@@ -38,7 +38,7 @@ export default function App() {
         <Route path="goals/:id" element={<GoalDetail />} />
         <Route path="profile" element={<Profile />} />
         <Route path="activity" element={<Activity />} />
-        <Route path="admin" element={<Admin />} />
+        <Route path="ops-4f8a" element={<Admin />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

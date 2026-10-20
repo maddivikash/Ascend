@@ -1,7 +1,8 @@
 """Admin dashboard API: who signed up, who is active, what they are doing.
 
-GET /api/admin/overview?days=30   totals, per-day series and the user list
-Admin = logged-in user whose email is in ADMIN_EMAILS (same rule as the blog admin).
+GET /api/ops-4f8a/overview?days=30   totals, per-day series and the user list
+Admin = users.is_admin, granted only in the database. The odd prefix keeps the URL unguessable;
+the flag is what actually protects it.
 Read-only; nothing here changes data.
 """
 from datetime import datetime, timedelta
@@ -19,7 +20,7 @@ from app.models.step import Step
 from app.models.task import Task
 from app.models.user import User
 
-router = APIRouter(prefix="/api/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/api/ops-4f8a", tags=["Admin"], dependencies=[Depends(require_admin)])
 
 
 def _day(d: Optional[datetime]) -> Optional[str]:
