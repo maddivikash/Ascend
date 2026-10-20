@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import GoalDetail from "./pages/GoalDetail";
 import Profile from "./pages/Profile";
 import Activity from "./pages/Activity";
+import Admin from "./pages/Admin";
 
 /** "/" is public: logged-out visitors get the landing page, signed-in users the app. */
 function RootGate() {
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="goals/:id" element={<GoalDetail />} />
         <Route path="profile" element={<Profile />} />
         <Route path="activity" element={<Activity />} />
+        <Route path="admin" element={<Admin />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

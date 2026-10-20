@@ -44,6 +44,11 @@ export default function Layout() {
             </span>
           </Link>
           <div className="app-header__right">
+            {user?.is_admin && (
+              <Link to="/admin" className="btn btn--ghost btn--sm" title="Users and activity">
+                Admin
+              </Link>
+            )}
             {user && <NotificationsBell />}
             <button
               className="theme-toggle"

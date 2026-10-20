@@ -7,6 +7,58 @@ export interface User {
   resume_filename?: string | null;
   resume_updated_at?: string | null;
   seen_features?: string[];
+  is_admin?: boolean;
+}
+
+export interface DayCount {
+  date: string;
+  value: number;
+}
+
+export interface AdminUserRow {
+  id: number;
+  name: string;
+  email: string;
+  is_active: boolean;
+  created_at: string | null;
+  last_login_at: string | null;
+  last_activity_at: string | null;
+  goals: number;
+  steps_done: number;
+  steps_total: number;
+  tasks_done: number;
+  tasks_total: number;
+  has_resume: boolean;
+  email_reminders: boolean;
+}
+
+export interface AdminOverview {
+  days: number;
+  from: string;
+  to: string;
+  totals: {
+    users: number;
+    new_in_range: number;
+    new_previous: number;
+    active_in_range: number;
+    with_goal: number;
+    with_progress: number;
+    with_resume: number;
+    goals_in_range: number;
+    goals_previous: number;
+    tasks_in_range: number;
+    tasks_previous: number;
+    goals_total: number;
+    steps_done_total: number;
+    tasks_done_total: number;
+  };
+  signups_by_day: DayCount[];
+  goals_by_day: DayCount[];
+  tasks_by_day: DayCount[];
+  logins_by_day: DayCount[];
+  top_roles: { role: string; count: number }[];
+  users: AdminUserRow[];
+  notes: string[];
 }
 
 export interface AppNotification {

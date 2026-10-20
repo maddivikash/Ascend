@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.crud.user import get_user_by_email
 from app.core.auth import decode_access_token
+from app.core.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
 
@@ -22,3 +23,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=404, detail="User not found")
     
     return user
+
+
+def require_admin(current_user=Depends(get_current_user)):
+    """Logged-in user whose email is in ADMIN_EMAILS (blog admin and the admin dashboard)."""
+    if (current_user.email or "").lower() not in settings.ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin only")
+    return current_user

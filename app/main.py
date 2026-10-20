@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import user, goal, path, step, task, dashboard, catalog, chat, learn, prep, notifications, posts, blog
+from app.api.routes import user, goal, path, step, task, dashboard, catalog, chat, learn, prep, notifications, posts, blog, admin
 from app.core.config import settings
 from app.db.session import engine
 from app.models import Base
@@ -49,3 +49,4 @@ app.include_router(prep.router)
 app.include_router(notifications.router)
 app.include_router(posts.router)
 app.include_router(blog.router)
+app.include_router(admin.router)

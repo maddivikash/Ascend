@@ -16,19 +16,13 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import require_admin
 from app.db.deps import get_db
 from app.models.post import Post
 from app.models.user import User
 from app.services.digest_service import create_digest, create_weekly
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
-
-
-def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if (current_user.email or "").lower() not in settings.ADMIN_EMAILS:
-        raise HTTPException(status_code=403, detail="Admin only")
-    return current_user
 
 
 def serialize(p: Post, full: bool = True) -> dict:

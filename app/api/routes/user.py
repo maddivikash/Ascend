@@ -17,7 +17,8 @@ from app.core.auth import (
     decode_access_token,
 )
 from app.core.config import settings
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_admin
+from datetime import datetime
 from app.core.email import send_reset_email
 from app.db.deps import get_db
 from app.crud import user as crud_user
@@ -36,6 +37,9 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     user = crud_user.login_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    user.last_login_at = datetime.utcnow()
+    db.commit()
 
     access_token = create_access_token(data={"sub": user.email})
     refresh_token = create_refresh_token(data={"sub": user.email})
@@ -89,7 +93,9 @@ def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(
 
 @router.get("/users/me", response_model=UserOut)
 def get_current_logged_in_user(current_user=Depends(get_current_user)):
-    return current_user
+    out = UserOut.model_validate(current_user)
+    out.is_admin = (current_user.email or "").lower() in settings.ADMIN_EMAILS
+    return out
 
 
 @router.put("/users/me/preferences", response_model=UserOut)
@@ -140,7 +146,7 @@ def reset_progress(
     deleted = crud_user.reset_user_data(db, current_user.id)
     return {"message": f"Reset complete. Removed {deleted} goals and all their content."}
 
-@router.delete("/users/{user_id}", response_model=dict)
+@router.delete("/users/{user_id}", response_model=dict, dependencies=[Depends(require_admin)])
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -154,7 +160,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     return {"message": f"User with id {user_id} deactivated successfully"}
 
 
-@router.put("/users/{user_id}/activate", response_model=dict)
+@router.put("/users/{user_id}/activate", response_model=dict, dependencies=[Depends(require_admin)])
 def activate_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:

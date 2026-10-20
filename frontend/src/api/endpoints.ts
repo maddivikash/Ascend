@@ -1,5 +1,6 @@
 import { API_URL, apiFetch, getAccessToken, setTokens } from "./client";
 import type {
+  AdminOverview,
   AppNotification,
   CatalogRole,
   Dashboard,
@@ -431,4 +432,9 @@ export function generatePost(publish = false): Promise<Post> {
 
 export function setPostStatus(id: number, status: "draft" | "published"): Promise<Post> {
   return apiFetch<Post>(`/posts/${id}`, { method: "PATCH", body: { status } });
+}
+
+// ---- Admin ----
+export function getAdminOverview(days = 30): Promise<AdminOverview> {
+  return apiFetch<AdminOverview>(`/api/admin/overview?days=${days}`);
 }

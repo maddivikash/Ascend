@@ -43,6 +43,7 @@ export default function SuggestionsWizard({ open, goalId, role, existingPaths, o
   const [loading, setLoading] = useState(true);
   const [idx, setIdx] = useState(0);
   const [busy, setBusy] = useState<number | null>(null);
+  const [busyAll, setBusyAll] = useState(false);
   // Track what was created for each catalog item so it can be removed/undone.
   const [added, setAdded] = useState<
     Record<number, { kind: "step" | "path"; id: number }>
@@ -119,6 +120,43 @@ export default function SuggestionsWizard({ open, goalId, role, existingPaths, o
   async function add(s: CatalogItem) {
     setBusy(s.id);
     try {
+      await addOne(s);
+      success(`Added "${s.name}"`);
+    } catch (err) {
+      error(err instanceof Error ? err.message : "Failed to add.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function isItemAdded(s: CatalogItem): boolean {
+    const name = s.name.trim().toLowerCase();
+    return !!added[s.id] || (step.cat === "project" ? existingPathTitles.has(name) : existingStepNames.has(name));
+  }
+
+  /** Add every suggestion in this category that isn't already in the goal, one request at a time. */
+  async function addAll() {
+    const todo = items.filter((s) => !isItemAdded(s));
+    if (!todo.length) return;
+    setBusyAll(true);
+    let done = 0;
+    try {
+      for (const s of todo) {
+        setBusy(s.id);
+        await addOne(s);
+        done++;
+      }
+      success(`Added all ${done} ${step.plural.toLowerCase()}`);
+    } catch (err) {
+      error(`${done ? `Added ${done}, then failed: ` : ""}${err instanceof Error ? err.message : "Failed to add."}`);
+    } finally {
+      setBusy(null);
+      setBusyAll(false);
+    }
+  }
+
+  async function addOne(s: CatalogItem) {
+    {
       let entry: { kind: "step" | "path"; id: number };
       if (step.cat === "project") {
         const p = await createPath(goalId, {
@@ -147,12 +185,7 @@ export default function SuggestionsWizard({ open, goalId, role, existingPaths, o
         entry = { kind: "step", id: created.id };
       }
       setAdded((prev) => ({ ...prev, [s.id]: entry }));
-      success(`Added "${s.name}"`);
       onAdded();
-    } catch (err) {
-      error(err instanceof Error ? err.message : "Failed to add.");
-    } finally {
-      setBusy(null);
     }
   }
 
@@ -199,9 +232,22 @@ export default function SuggestionsWizard({ open, goalId, role, existingPaths, o
           <h3 className="wizard__title">
             <span aria-hidden="true">{step.icon}</span> {step.title}
           </h3>
-          <span className="wizard__count">
-            {idx + 1} / {STEPS.length}
-          </span>
+          <div className="wizard__head-right">
+            {!loading && items.some((s) => !isItemAdded(s)) && (
+              <button
+                type="button"
+                className="btn btn--sm btn--soft"
+                disabled={busyAll || busy !== null}
+                onClick={addAll}
+                title={`Add every ${step.plural.toLowerCase().replace(/s$/, "")} on this list`}
+              >
+                {busyAll ? "Adding all…" : `+ Add all ${items.filter((s) => !isItemAdded(s)).length}`}
+              </button>
+            )}
+            <span className="wizard__count">
+              {idx + 1} / {STEPS.length}
+            </span>
+          </div>
         </div>
         <p className="wizard__sub">
           {data?.matched ? (
@@ -266,7 +312,7 @@ export default function SuggestionsWizard({ open, goalId, role, existingPaths, o
                   ) : (
                     <button
                       className="btn btn--sm btn--soft"
-                      disabled={busy === s.id}
+                      disabled={busyAll || busy === s.id}
                       onClick={() => add(s)}
                     >
                       {busy === s.id ? "Adding…" : "+ Add"}

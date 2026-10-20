@@ -17,6 +17,7 @@ class UserOut(UserBase):
     resume_filename: Optional[str] = None
     resume_updated_at: Optional[datetime] = None
     seen_features: List[str] = []
+    is_admin: bool = False
 
     class Config:
         from_attributes = True

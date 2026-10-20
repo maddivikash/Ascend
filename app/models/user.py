@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from app.db.base_class import Base
 
@@ -21,6 +23,10 @@ class User(Base):
     # Lives on the account (not localStorage) so it is seen once per user,
     # not once per browser.
     seen_features_raw = Column("seen_features", Text, nullable=False, default="")
+
+    # For the admin dashboard: when the account was made and when it last signed in.
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=True)
+    last_login_at = Column(DateTime, nullable=True)
 
     @property
     def has_resume(self) -> bool:
