@@ -15,7 +15,7 @@ set -euo pipefail
 
 ACCOUNT=720443382372
 REGION=ap-south-1
-REPO=maddivikash/skill_sync_backend
+REPO=maddivikash/Ascend
 ROLE=github-actions-deploy
 INSTANCE=i-0c8a6ad86684312c4
 PROVIDER_ARN="arn:aws:iam::${ACCOUNT}:oidc-provider/token.actions.githubusercontent.com"

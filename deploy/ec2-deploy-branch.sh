@@ -13,7 +13,7 @@ APP=/home/ec2-user/skillsync
 SRC=/home/ec2-user/deploy_src
 
 rm -rf "$SRC" && mkdir -p "$SRC"
-curl -sL "https://codeload.github.com/maddivikash/skill_sync_backend/tar.gz/refs/heads/${BRANCH}" \
+curl -sL "https://codeload.github.com/maddivikash/Ascend/tar.gz/refs/heads/${BRANCH}" \
   | tar xz -C "$SRC" --strip-components=1
 
 rsync -a --exclude '.env' --exclude 'node_modules' --exclude 'dist' --exclude '__pycache__' "$SRC/" "$APP/"
