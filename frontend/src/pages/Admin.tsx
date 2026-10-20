@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getAdminOverview } from "../api/endpoints";
 import type { AdminOverview, AdminUserRow, DayCount } from "../types";
 
 const RANGES = [7, 30, 90];
+
+function NotFound() {
+  return (
+    <div className="page admin-404" role="alert">
+      <span className="admin-404__code">404</span>
+      <span className="admin-404__text">This page could not be found.</span>
+    </div>
+  );
+}
 
 const n = (v: number) => v.toLocaleString("en-IN");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "–");
@@ -86,7 +95,7 @@ export default function Admin() {
   }, [days]);
 
   // Not an admin: behave like the page does not exist.
-  if (user && !user.is_admin) return <Navigate to="/" replace />;
+  if (user && !user.is_admin) return <NotFound />;
 
   if (error) {
     return (

@@ -436,5 +436,5 @@ export function setPostStatus(id: number, status: "draft" | "published"): Promis
 
 // ---- Admin ----
 export function getAdminOverview(days = 30): Promise<AdminOverview> {
-  return apiFetch<AdminOverview>(`/api/ops-4f8a/overview?days=${days}`);
+  return apiFetch<AdminOverview>(`/api/admin/overview?days=${days}`);
 }

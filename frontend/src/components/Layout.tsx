@@ -45,7 +45,7 @@ export default function Layout() {
           </Link>
           <div className="app-header__right">
             {user?.is_admin && (
-              <Link to="/ops-4f8a" className="btn btn--ghost btn--sm" title="Users and activity">
+              <Link to="/admin" className="btn btn--ghost btn--sm" title="Users and activity">
                 Admin
               </Link>
             )}

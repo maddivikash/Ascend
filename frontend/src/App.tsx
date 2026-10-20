@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import { getAccessToken } from "./api/client";
@@ -16,7 +16,9 @@ import Admin from "./pages/Admin";
 
 /** "/" is public: logged-out visitors get the landing page, signed-in users the app. */
 function RootGate() {
-  if (!getAccessToken()) return <Landing />;
+  const { pathname } = useLocation();
+  // Signed out: the home page is the landing page; any deeper link goes to login.
+  if (!getAccessToken()) return pathname === "/" ? <Landing /> : <Navigate to="/login" replace />;
   return (
     <ProtectedRoute>
       <Layout />
@@ -38,7 +40,7 @@ export default function App() {
         <Route path="goals/:id" element={<GoalDetail />} />
         <Route path="profile" element={<Profile />} />
         <Route path="activity" element={<Activity />} />
-        <Route path="ops-4f8a" element={<Admin />} />
+        <Route path="admin" element={<Admin />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
