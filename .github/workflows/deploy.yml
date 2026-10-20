@@ -27,6 +27,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Show the OIDC identity GitHub will present to AWS
+        # Prints the token's non-secret claims (sub, aud, repository, ref) so a trust-policy mismatch is obvious in the log.
+        run: |
+          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "$TOKEN" | cut -d. -f2 | tr '_-' '/+' | awk '{ l=length($0)%4; if (l) $0=$0 substr("===",1,4-l); print }' | base64 -d 2>/dev/null | jq '{sub, aud, repository, repository_owner, ref, iss}'
+
       - name: Assume deploy role via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
