@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Trust any workflow in the Ascend repo (any branch or environment), not only refs/heads/main.
-# Still scoped to this one repository. Use when AssumeRoleWithWebIdentity says "Not authorized".
+# Still scoped to this one repository. GitHub now issues the sub claim with ids embedded
+# (repo:OWNER@ID/REPO@ID:ref:...), so both the plain and the id forms are accepted.
 set -euo pipefail
 ROLE=github-actions-deploy
 ACCOUNT=720443382372
@@ -13,7 +14,7 @@ TRUST=$(cat <<JSON
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
-      "StringLike": {"token.actions.githubusercontent.com:sub": ["repo:maddivikash/Ascend:*", "repo:maddivikash/skill_sync_backend:*"]}
+      "StringLike": {"token.actions.githubusercontent.com:sub": ["repo:maddivikash/Ascend:*", "repo:maddivikash@74365588/Ascend@1022461343:*", "repo:maddivikash@*/Ascend@*:*"]}
     }
   }]
 }
