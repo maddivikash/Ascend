@@ -12,7 +12,10 @@ from sqlalchemy.orm import Session
 from app.db.deps import get_db
 from app.models.visit import Visit
 
-router = APIRouter(prefix="/api")
+# No "/api" prefix: Caddy's `handle_path /api/*` strips one "/api" before
+# proxying, so the public URL "/api/visit" (hit by the page-load beacon) maps
+# to the backend route "/visit". This matches the health/dashboard/prep routers.
+router = APIRouter()
 
 
 def _ip_key(req: Request) -> str:
