@@ -51,11 +51,18 @@ export interface AdminOverview {
     goals_total: number;
     steps_done_total: number;
     tasks_done_total: number;
+    visitors_in_range: number;
+    unique_visitors_in_range: number;
+    all_time_unique_visitors: number;
+    all_time_pageviews: number;
+    unique_visitors_7d: number;
+    unique_visitors_28d: number;
   };
   signups_by_day: DayCount[];
   goals_by_day: DayCount[];
   tasks_by_day: DayCount[];
   logins_by_day: DayCount[];
+  visitors_by_day: DayCount[];
   top_roles: { role: string; count: number }[];
   users: AdminUserRow[];
   notes: string[];

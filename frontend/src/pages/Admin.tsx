@@ -129,6 +129,14 @@ export default function Admin() {
       </div>
 
       <div className="admin-tiles">
+        <div className="stat"><div className="stat__label">Visitors · last 7 days</div><div className="stat__value">{n(t.unique_visitors_7d)}</div><div className="admin-sub">unique visitors (by IP)</div></div>
+        <div className="stat"><div className="stat__label">Visitors · last 28 days</div><div className="stat__value">{n(t.unique_visitors_28d)}</div><div className="admin-sub">unique visitors (by IP)</div></div>
+        <div className="stat"><div className="stat__label">Visitors · overall</div><div className="stat__value">{n(t.all_time_unique_visitors)}</div><div className="admin-sub">{n(t.all_time_pageviews)} all-time pageviews</div></div>
+      </div>
+
+      <div className="admin-tiles">
+        <div className="stat"><div className="stat__label">Users</div><div className="stat__value">{n(t.users)}</div><div className="admin-sub">{n(t.all_time_pageviews)} all-time pageviews</div></div>
+        <div className="stat"><div className="stat__label">Visitors ({days}d)</div><div className="stat__value">{n(t.unique_visitors_in_range)}</div><div className="admin-sub">{n(t.visitors_in_range)} pageviews</div></div>
         <div className="stat"><div className="stat__label">New users</div><div className="stat__value">{n(t.new_in_range)}</div><div className={`admin-sub ${newD.cls}`}>{newD.text}</div></div>
         <div className="stat"><div className="stat__label">Active users</div><div className="stat__value">{n(t.active_in_range)}</div><div className="admin-sub">{pct(t.active_in_range, t.users)} of everyone logged in or did something</div></div>
         <div className="stat"><div className="stat__label">Goals created</div><div className="stat__value">{n(t.goals_in_range)}</div><div className={`admin-sub ${goalD.cls}`}>{goalD.text}</div></div>
@@ -136,9 +144,11 @@ export default function Admin() {
       </div>
 
       <div className="admin-grid admin-grid--3">
+        <div className="admin-card"><Bars points={data.visitors_by_day} label="Site visitors (unique)" /></div>
         <div className="admin-card"><Bars points={data.signups_by_day} label="Signups" /></div>
         <div className="admin-card"><Bars points={data.logins_by_day} label="Last logins" /></div>
         <div className="admin-card"><Bars points={data.goals_by_day} label="Goals created" /></div>
+        <div className="admin-card"><Bars points={data.tasks_by_day} label="Tasks created" /></div>
       </div>
 
       <div className="admin-grid admin-grid--2">
@@ -146,14 +156,15 @@ export default function Admin() {
           <div className="section-head__title">Where users get to</div>
           <ol className="admin-funnel">
             {[
+              ["Visitor", t.all_time_unique_visitors],
               ["Signed up", t.users],
               ["Uploaded a resume", t.with_resume],
               ["Created a goal", t.with_goal],
               ["Completed a step or task", t.with_progress],
             ].map(([label, v], i) => (
               <li key={String(label)}>
-                <div className="admin-funnel__row"><span>{label}</span><span className="muted-note">{n(Number(v))} · {pct(Number(v), t.users)}</span></div>
-                <div className="admin-funnel__track"><i style={{ width: `${t.users ? Math.max(1, (Number(v) / t.users) * 100) : 0}%`, opacity: 1 - i * 0.15 }} /></div>
+                <div className="admin-funnel__row"><span>{label}</span><span className="muted-note">{n(Number(v))} · {pct(Number(v), Math.max(t.all_time_unique_visitors, t.users))}</span></div>
+                <div className="admin-funnel__track"><i style={{ width: `${Math.max(t.all_time_unique_visitors, t.users) ? Math.max(1, (Number(v) / Math.max(t.all_time_unique_visitors, t.users)) * 100) : 0}%`, opacity: 1 - i * 0.15 }} /></div>
               </li>
             ))}
           </ol>

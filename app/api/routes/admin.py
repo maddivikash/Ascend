@@ -18,6 +18,7 @@ from app.models.learning_path import LearningPath
 from app.models.step import Step
 from app.models.task import Task
 from app.models.user import User
+from app.models.visit import Visit
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
 
@@ -117,6 +118,35 @@ def overview(days: int = Query(30, ge=7, le=365), db: Session = Depends(get_db))
     task_stamps = [r[0] for r in db.query(Task.created_at).filter(Task.created_at >= prev_start).all()]
     login_stamps = [u.last_login_at for u in users]
 
+    # Visitor stats (from the visits table).
+    start_iso = start.date().isoformat()
+    end_iso = now.date().isoformat()
+    visitors_in_range = (
+        db.query(func.count(Visit.id))
+        .filter(Visit.date >= start_iso, Visit.date <= end_iso)
+        .scalar() or 0
+    )
+    unique_in_range = (
+        db.query(func.count(func.distinct(Visit.ip_key)))
+        .filter(Visit.date >= start_iso, Visit.date <= end_iso)
+        .scalar() or 0
+    )
+    unique_all = db.query(func.count(func.distinct(Visit.ip_key))).scalar() or 0
+    pageviews_all = db.query(func.count(Visit.id)).scalar() or 0
+
+    # Fixed 7-day and 28-day unique-visitor windows, independent of the selected range.
+    def _unique_last(window: int) -> int:
+        since = (now - timedelta(days=window - 1)).date().isoformat()
+        return (
+            db.query(func.count(func.distinct(Visit.ip_key)))
+            .filter(Visit.date >= since, Visit.date <= end_iso)
+            .scalar() or 0
+        )
+
+    unique_7d = _unique_last(7)
+    unique_28d = _unique_last(28)
+    visitors_by_day = _series(days, now, [v.created_at for v in db.query(Visit.created_at).filter(Visit.date >= start_iso, Visit.date <= end_iso).all()])
+
     totals = {
         "users": len(users),
         "new_in_range": sum(1 for u in users if in_range(u.created_at)),
@@ -132,6 +162,12 @@ def overview(days: int = Query(30, ge=7, le=365), db: Session = Depends(get_db))
         "goals_total": db.query(func.count(Goal.id)).scalar() or 0,
         "steps_done_total": sum(v["done"] for v in steps_by_user.values()),
         "tasks_done_total": sum(v["done"] for v in tasks_by_user.values()),
+        "visitors_in_range": visitors_in_range,
+        "unique_visitors_in_range": unique_in_range,
+        "all_time_unique_visitors": unique_all,
+        "all_time_pageviews": pageviews_all,
+        "unique_visitors_7d": unique_7d,
+        "unique_visitors_28d": unique_28d,
     }
 
     # Which roles people are chasing, by goal count (top 10).
@@ -146,11 +182,13 @@ def overview(days: int = Query(30, ge=7, le=365), db: Session = Depends(get_db))
         "goals_by_day": _series(days, now, goal_stamps),
         "tasks_by_day": _series(days, now, task_stamps),
         "logins_by_day": _series(days, now, login_stamps),
+        "visitors_by_day": visitors_by_day,
         "top_roles": [{"role": r[0] or "(none)", "count": r[1]} for r in role_rows],
         "users": rows,
         "notes": [
             "Signup dates before 21 Oct 2026 are estimated from each user's first goal.",
             "Last login is recorded from 21 Oct 2026 onward; older sessions are unknown.",
             "Steps and tasks have no completion date, so 'done' is a current count, not dated activity.",
+            "Visitors are deduplicated by IP per day. Counts reflect unique visitors, not pageviews.",
         ],
     }
